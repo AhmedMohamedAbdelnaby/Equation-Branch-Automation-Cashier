@@ -1,0 +1,39 @@
+Begin transaction TurnoffOnlinePending
+Print 'Utility to reset the Cashier Online Pending flag'
+Print ' '
+
+declare @NewAvpFstat varchar(1)
+declare @OldAvpFstatAfterUpdate varchar(1)
+declare @OldAVPFstat varchar(1)
+
+set @NewAvpFstat = 'N'
+
+print 'Ready to read control file'
+select @OldAVPFstat = Substring (csdata, 433,1) from apfcntrl
+print 'Current value of AVPFSTAT: ' + @OldAVPFstat
+if (@OldAVPFstat = 'P')
+BEGIN
+Update apfcntrl Set csdata = Substring (csdata, 1,432) + @NewAvpFstat  + Substring(Csdata, 434,2500) 
+print 'Update complete'
+END
+else
+BEGIN
+print 'Status is not Online Pending'
+-- force rollback
+set @NewAVPFstat = 'X'
+END
+select @OldAvpFstatAfterUpdate = Substring (csdata, 433,1) from apfcntrl
+print 'Value read back is: ' + @OldAvpFstatAfterUpdate
+
+-- Now check if the update is correct
+if (@OldAvpFstatAfterUpdate = @NewAVPFstat)
+BEGIN
+  commit transaction TurnoffOnlinePending
+  print 'Transaction has been committed'
+END
+else 
+BEGIN
+  rollback transaction TurnoffOnlinePending
+  print 'Transaction has been rolled back'
+END
+GO
